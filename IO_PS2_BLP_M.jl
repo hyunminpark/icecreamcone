@@ -126,9 +126,8 @@ for j in 1:J
 end
 
 using Ipopt
-setSolver(m,IpoptSolver(tol = 1e-5, linear_solver=:ma57, 
-hessian_approximation=:limited_memory, max_iter = 1000, output_file = "BLP.txt"))
-
+setSolver(m,IpoptSolver(tol = 1e-5, 
+hessian_approximation="limited-memory", max_iter = 1000, output_file = "BLP.txt"))
 println("blp model input done")
 status = solve(m)
 println("blp solved")

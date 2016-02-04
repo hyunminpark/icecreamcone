@@ -55,9 +55,10 @@ for j=1:J
 end
 
 using Ipopt
-setSolver(m,IpoptSolver(tol = 1e-5, max_iter = 1000, output_file = "results.txt"))
-status = solve(m)
+setSolver(m,IpoptSolver(tol = 1e-5, 
+hessian_approximation="limited-memory", max_iter = 1000, output_file = "logit.txt"))
 
+status=solve(m)
 toc()
 
 print(status)
@@ -77,55 +78,3 @@ Omega += (xi_logit[j]^2)*iv[j,:]'*iv[j,:]
 end
 W = inv((1/J)*Omega)
 
-### BLP Model
-tic()
-
-# Setting up the model
-using JuMP
-m = Model() # Set solver to default
-
-# Defining variables - set initial values to estimates from the logit model
-@defVar(m, g[1:L])
-for l in 1:L
-    setValue(g[l], g_logit[l])
-end
-@defVar(m, xi[1:J])
-for j in 1:J
-    setValue(xi[j], xi_logit[j])
-end
-@defVar(m, alpha, start=alpha_logit)
-@defVar(m, beta[1:K])
-for k in 1:K
-    setValue(beta[k], beta_logit[k])
-end
-
-# Defining variables - heterogeneity parameters
-@defVar(m, piInc[1:K+1])
-@defVar(m, piAge[1:K+1])
-@defVar(m, sigma[1:K+1])
-
-# We minimize the gmm objective - using the optimal weighting matrix! 
-@setObjective(m,Min,sum{sum{W[i,j]*g[i]*g[j],i=1:L},j=1:L}) 
-
-# g = sum_j xi_j iv_j
-for l in 1:L
-	@addConstraint(m,g[l]==sum{xi[j]*iv[j,l],j=1:J}) 
-end
-
-# market share equations - Note that where we assign each shock could have minor effect on estimation results
-# shock 1 : taste shock to constant
-# shock 2 : taste shock to x1
-# shock 3 : taste shock to x2
-# shock 4 : taste shock to x3
-# shock 5 : taste shock to price
-for j in 1:J
-	@addNLConstraint(m,s[j]==(1/N)*sum{exp(sum{(beta[k]+piInc[k]*inc[n]+piAge[k]*age[n]+sigma[k]*v[n,k])*x[j,k],k=1:K}
--(alpha+piInc[K+1]*inc[n]+piAge[K+1]*age[n]+sigma[K+1]*v[n,K+1])*p[j]+xi[j])
-/(sum{exp(sum{(beta[k]+piInc[k]*inc[n]+piAge[k]*age[n]+sigma[k]*v[n,k])*x[h,k],k=1:K}
--(alpha+piInc[K+1]*inc[n]+piAge[K+1]*age[n]+sigma[K+1]*v[n,K+1])*p[h]+xi[h]),h=1:J}) ,n=1:N})
-end
-
-using Ipopt
-setSolver(m,IpoptSolver(tol = 1e-5, max_iter = 1000, output_file = "results.txt"))
-
-println("done")
