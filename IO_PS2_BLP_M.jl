@@ -55,7 +55,7 @@ for j=1:J
 end
 
 using Ipopt
-setSolver(m,IpoptSolver(tol = 1e-6, max_iter = 1000, output_file = "logit.txt"))
+setSolver(m,IpoptSolver(tol = 1e-5, max_iter = 1000, output_file = "logit.txt"))
 status = solve(m)
 
 toc()
@@ -126,7 +126,7 @@ for j in 1:J
 end
 
 using Ipopt
-setSolver(m,IpoptSolver(tol = 1e-6, 
+setSolver(m,IpoptSolver(tol = 1e-5, linear_solver=:ma57, 
 hessian_approximation=:limited_memory, max_iter = 1000, output_file = "BLP.txt"))
 
 println("blp model input done")

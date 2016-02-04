@@ -55,7 +55,7 @@ for j=1:J
 end
 
 using Ipopt
-setSolver(m,IpoptSolver(tol = 1e-8, max_iter = 1000, output_file = "results.txt"))
+setSolver(m,IpoptSolver(tol = 1e-5, max_iter = 1000, output_file = "results.txt"))
 status = solve(m)
 
 toc()
