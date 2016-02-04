@@ -125,4 +125,7 @@ for j in 1:J
 -(alpha+piInc[K+1]*inc[n]+piAge[K+1]*age[n]+sigma[K+1]*v[n,K+1])*p[h]+xi[h]),h=1:J}) ,n=1:N})
 end
 
+using Ipopt
+setSolver(m,IpoptSolver(tol = 1e-5, max_iter = 1000, output_file = "results.txt"))
 
+println("done")
