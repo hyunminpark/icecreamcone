@@ -1,0 +1,10 @@
+outlev 4
+algorithm 1
+maxit 1000
+honorbnds 0
+bar_maxbacktrack 10
+bar_maxrefactor      5
+blasoption 0
+linsolver 4
+bar_directinterval 100000
+
