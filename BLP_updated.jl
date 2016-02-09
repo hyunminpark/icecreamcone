@@ -97,7 +97,9 @@ function eval_f(param)
 return param[21:30]'W*param[21:30]
 end
 function eval_grad_f(param, grad_f)
-grad_f[:] = 2*W*param[21:30]
+grad_f[1:29] = zeros(29)
+grad_f[21:30] = 2*W*param[21:30]
+grad_f[31:558] = zeros(528)
 end
 #=
 g = [share, g]
