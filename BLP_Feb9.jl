@@ -171,8 +171,8 @@ xi = param[31:558];
 denom = zeros(N,1);
 tau = zeros(J,N);
 kau = zeros(J,N);
-pau = zeros(20,N);
-jac = zeros(J+L,J+L);
+pau = zeros(Km,N);
+jac = zeros(J+L,J+L+4*Km);
     for n=1:N
         denom[n] = 1 # Outside option 
         for j=1:J
@@ -189,7 +189,7 @@ jac = zeros(J+L,J+L);
 
     for n=1:N
         for k=1:Km
-            for j=1:N            
+            for j=1:J           
                 pau[k,n] +=tau[j,n]*xm[j,k]
             end
         end
@@ -198,8 +198,8 @@ jac = zeros(J+L,J+L);
         for k=1:Km
             for n=1:N
                 jac[j,k] += tau[j,n]*(xm[j,k]-pau[k,n])
-                jac[j,Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*piInc[n]
-                jac[j,2*Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*piAge[n]
+                jac[j,Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*inc[n]
+                jac[j,2*Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*age[n]
                 jac[j,3*Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*v[n,k]
             end            
         end
