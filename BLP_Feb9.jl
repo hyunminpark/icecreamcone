@@ -92,114 +92,143 @@ g_U = zeros(m);
 nele_jac = 294196;
 nele_hess = 0;
 iv = convert(Array, iv);
-W = inv((1/J)*iv'*Diagonal(diag(xi_logit*xi_logit'))*iv);
-function eval_f(param)
-return param[21:30]'W*param[21:30]
+
+# Calculating optimal weighting matrix
+Omega = zeros(L, L);
+for j=1:J
+    Omega += (xi_logit[j]^2)*iv[j,:]'*iv[j,:]
 end
+W = inv((1/J)*Omega);
+
+function eval_f(param)
+    f=0;
+    for n1=1:L
+        for n2=1:L
+            f += param[n1+20]*W[n1,n2]*param[n2+20]
+        end
+    end
+    return f
+end
+
 function eval_grad_f(param, grad_f)
 grad_f[1:29] = zeros(29)
 grad_f[21:30] = 2*W*param[21:30]
 grad_f[31:558] = zeros(528)
 end
+
 #=
 g = [share, g]
 g = [1:528, 529:538]
-param = [alpha, beta_par, piInc, piAge, sigma, g, xi ]
-param = [1, 2:5, 6:10, 11:15, 16:20, 21:30, 31:558
+param = [beta, alpha, piInc, piAge, sigma, g, xi ]
+param = [1:4, 5, 6:10, 11:15, 16:20, 21:30, 31:558]
 =#
+
 function eval_g(param, g)
-alpha = param[1];
-beta_par = param[2:5];
-piInc = param[6:10];
-piAge = param[11:15];
-sigma = param[16:20];
-denom = zeros(N,1);
-tau = zeros(J,N);
-for n = 1:N
-denom[n] = sum( exp(
--(alpha + piInc[K+1]*inc[n] + piAge[K+1]*age[n] + sigma[K+1]*v[n,K+1])*p
-+ x[:,1:K]*(beta_par[1:K] + piInc[1:K]*inc[n] + piAge[1:K]*age[n] + Diagonal(sigma[1:K])*v'[1:K,n] )
-+ xi )
-)
-tau[:,n] = exp(
--(alpha + piInc[K+1]*inc[n] + piAge[K+1]*age[n] + sigma[K+1]*v[n,K+1])*p
-+ x[:,1:K]*(beta_par[1:K] + piInc[1:K]*inc[n] + piAge[1:K]*age[n] + Diagonal(sigma[1:K])*v'[1:K,n] )
-+ xi )/denom[n]
-end
-g[1:528] = s - sum(tau[:,n], 2) / N
-g[529:538] = iv'param[31:558] - param[21:30]
-end
-function eval_jac_g(param, mode, rows, cols, values)
 # Variables
-alpha = param[1];
-beta_par = param[2:5];
+beta = param[1:4];
+alpha = param[5];
 piInc = param[6:10];
 piAge = param[11:15];
 sigma = param[16:20];
 xi = param[31:558];
-d_alpha = zeros(J,N);
-d_beta_par = zeros(J,K,N);
-d_piInc = zeros(J,K+1,N);
-d_piAge = zeros(J,K+1,N);
-d_sigma = zeros(J,K+1,N);
-d_xi = zeros(J,J,N);
 denom = zeros(N,1);
 tau = zeros(J,N);
-for n = 1:N
-denom[n] = sum( exp(
--(alpha + piInc[K+1]*inc[n] + piAge[K+1]*age[n] + sigma[K+1]*v[n,K+1])*p
-+ x[:,1:K]*(beta_par[1:K] + piInc[1:K]*inc[n] + piAge[1:K]*age[n] + Diagonal(sigma[1:K])*v'[1:K,n] )
-+ xi )
-)
-tau[:,n] = exp(
--(alpha + piInc[K+1]*inc[n] + piAge[K+1]*age[n] + sigma[K+1]*v[n,K+1])*p
-+ x[:,1:K]*(beta_par[1:K] + piInc[1:K]*inc[n] + piAge[1:K]*age[n] + Diagonal(sigma[1:K])*v'[1:K,n] )
-+ xi )/denom[n]
+kau = zeros(J,N);
+sumtau = zeros(J);
+    for n=1:N
+        denom[n] = 1 # Outside option 
+        for j=1:J
+		for k=1:K
+			kau[j,n] += (beta[k]+piInc[k]*inc[n]+piAge[k]*age[n]+sigma[k]*v[n,k])*x[j,k]
+		end
+            tau[j,n] = exp(kau[j,n]-(alpha+piInc[K+1]*inc[n]+piAge[K+1]*age[n]+sigma[K+1]*v[n,K+1])*p[j]+xi[j])
+            denom[n] += tau[j,n]
+        end
+        for j=1:J
+            tau[j,n]=tau[j,n]/denom[n]
+        end
+    end 
+    for j=1:J
+        for n=1:N
+            sumtau[j] += tau[j,n]
+        end
+        g[j] = s[j] - sumtau[j] / N
+    end
+g[529:538] = iv'*xi[:] - param[21:30]
 end
-# Define derivatives point by point
-for n = 1:N
-for j = 1:J
-d_alpha[j,n] = p[j]*tau[j,n] - sum(Diagonal(p)*tau[:,n])*tau[j,n]
-d_piInc[j,K+1,N] = (p[j]*tau[j,n] - sum(Diagonal(p)*tau[:,n])*tau[j,n])*inc[n]
-d_piAge[j,K+1,N] = (p[j]*tau[j,n] - sum(Diagonal(p)*tau[:,n])*tau[j,n])*age[n]
-d_sigma[j,K+1,N] = (p[j]*tau[j,n] - sum(Diagonal(p)*tau[:,n])*tau[j,n])*v'[K+1,n]
-for k=1:K
-d_beta_par[j,k,n] = ( x[j,k]*tau[j,n] - sum(Diagonal(x[:,k])*tau[:,n])*tau[j,n] )
-d_piInc[j,k,n] = ( x[j,k]*tau[j,n] - sum(Diagonal(x[:,k])*tau[:,n])*tau[j,n] )*inc[n]
-d_piAge[j,k,n] = ( x[j,k]*tau[j,n] - sum(Diagonal(x[:,k])*tau[:,n])*tau[j,n] )*age[n]
-d_sigma[j,k,n] = ( x[j,k]*tau[j,n] - sum(Diagonal(x[:,k])*tau[:,n])*tau[j,n] )*v'[k,n]
-end
-for jj=1:J
-if j == jj
-d_xi[j,jj,n] = tau[j,n]*(1 - tau[j,n])
-else
-d_xi[j,jj,N] = - tau[j,n]*tau[jj,n]
-end
-end
-end
-end
-# Define derivative matrices
-D_alpha = (1/N)*sum(d_alpha, 2);
-D_beta_par = (1/N)*sum(d_beta_par, 3);
-D_piInc = (1/N)*sum(d_piInc, 3);
-D_piAge = (1/N)*sum(d_piAge, 3);
-D_sigma = (1/N)*sum(d_sigma, 3);
-D_theta = [D_beta_par D_alpha D_piInc D_piAge D_sigma];
-D_xi = (1/N)*sum(d_xi, 3);
-# Now that we have derivatives, the rest is easy.
-len_theta = 1 + K + 3*(K+1)
-zero_1 = zeros(J,L)
-zero_2 = zeros(L,len_theta)
-I_g = eye(L)
-jac = [D_theta D_xi zero_1 ; zero_2 -iv' I_g]
-jac = convert(Array{Float64,2}, jac[1:size(jac,1), 1:size(jac,2)])
-(Eye, Jay, Vee) = findnz(jac);
+
+
+function eval_jac_g(param, mode, rows, cols, values)
+# Variables
+xm = [x p]
+Km = K+1
+beta = param[1:4];
+alpha = param[5];
+piInc = param[6:10];
+piAge = param[11:15];
+sigma = param[16:20];
+xi = param[31:558];
+denom = zeros(N,1);
+tau = zeros(J,N);
+kau = zeros(J,N);
+pau = zeros(20,N);
+jac = zeros(J+L,J+L);
+    for n=1:N
+        denom[n] = 1 # Outside option 
+        for j=1:J
+		for k=1:K
+			kau[j,n] += (beta[k]+piInc[k]*inc[n]+piAge[k]*age[n]+sigma[k]*v[n,k])*x[j,k]
+		end
+            tau[j,n] = exp(kau[j,n]-(alpha+piInc[K+1]*inc[n]+piAge[K+1]*age[n]+sigma[K+1]*v[n,K+1])*p[j]+xi[j])
+            denom[n] += tau[j,n]
+        end
+        for j=1:J
+            tau[j,n]=tau[j,n]/denom[n]
+        end
+    end
+
+    for n=1:N
+        for k=1:Km
+            for j=1:N            
+                pau[k,n] +=tau[j,n]*xm[j,k]
+            end
+        end
+    end
+    for j=1:J
+        for k=1:Km
+            for n=1:N
+                jac[j,k] += tau[j,n]*(xm[j,k]-pau[k,n])
+                jac[j,Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*piInc[n]
+                jac[j,2*Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*piAge[n]
+                jac[j,3*Km+k] += tau[j,n]*(xm[j,k]-pau[k,n])*v[n,k]
+            end            
+        end
+        for kk=1:4*Km
+            jac[j,kk] = jac[j,kk]/N
+        end
+        for n=1:N
+            jac[j,4*Km+L+j] += tau[j,n]
+            for jj=1:J
+                jac[j,4*Km+L+jj] -= tau[j,n]*tau[jj,n]
+            end
+        end
+        for jj=1:J
+            jac[j,4*Km+L+jj] = jac[j,4*Km+L+jj]/N
+        end
+	end
+
+    jac[J+1:J+L,4*Km+1:4*Km+L]=eye(L);
+    jac[J+1:J+L,4*Km+L+1:4*Km+L+J] = -iv';
+    
+(Eye, Jay, Vee) = findnz(jac); 
 if mode == :Structure
-rows[:] = Eye; cols[:] = Jay;
+  	rows[:] = Eye; cols[:] = Jay;
 else
-values[:] = Vee;
+  	values[:] = Vee;
 end
+
 end
+
 #####################
 ## Call Ipopt ##
 #####################
