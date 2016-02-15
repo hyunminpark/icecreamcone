@@ -89,7 +89,7 @@ m = 538;
 g_L = zeros(m);
 g_U = zeros(m);
 # Number of non-zeros
-nele_jac = 294196;
+nele_jac = 294634;
 nele_hess = 0;
 iv = convert(Array, iv);
 
