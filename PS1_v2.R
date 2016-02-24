@@ -62,7 +62,7 @@ datal = melt(data,id="k")
 ggplot(datal,aes(x=value,group=k,fill=factor(k))) + geom_density() + facet_grid(~variable) + theme_bw()
 
 ### Estimation
-Niter=1000
+Niter=100
 
 # Initializing variables
 Y1=data$y1
@@ -83,9 +83,11 @@ tau = array(0,c(N,nk))
 lpm = array(0,c(N,nk))
 lik = 0
 likMat = array(0,Niter)
-tauMat = array(0,c(N,nk,Niter))
-lpmMat = array(0,c(N,nk,Niter))
+Qdiff = array(0,Niter)
+Hdiff = array(0,Niter)
 for (iter in 1:Niter){
+  tauLag = tau
+  lpmLag = lpm
   for (i in 1:N) {
     ltau = log(pk)
     lnorm1 = lognormpdf(Y1[i], A[1,], S[1,])
@@ -96,9 +98,16 @@ for (iter in 1:Niter){
     lik = lik + logsumexp(lall)
     tau[i,] = exp(lall - logsumexp(lall))
   }
-  likMat[iter] = lik
-  tauMat[,,iter] = tau
-  lpmMat[,,iter] = lpm
+  
+  # Checking whether H and Q functions decrease
+  if (iter>1){
+    Q1 = sum(tauLag*lpmLag)
+    Q2 = sum(tauLag*lpm)
+    H1 = -sum(tauLag*log(tauLag))
+    H2 = -sum(tauLag*log(tau))
+    Qdiff[iter] = Q2 - Q1
+    Hdiff[iter] = H2 - H1 
+  }
   # Updating the A and S matrices
   rw     = c(t(tau))
   fit1   = slm.wfit(Dkj,DY1,rw)
@@ -119,6 +128,3 @@ for (iter in 1:Niter){
   # Updating pk
   pk = colMeans(tau)
 }
-
-# Computing the Q and H
-
