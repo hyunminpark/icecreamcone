@@ -50,27 +50,6 @@ for i in unique(x_discretized)
 	end
 end
 
-###### Hotz Miller
-
-Ns = 1000; # Length of Simulated path
-xgrid = unique(x_discretized);
-y   = Dict()
-z0  = Dict()
-z1  = Dict()
-z2  = Dict()
-zrc = Dict()
-for i in unique(x_discretized)
-	# Simulate paths	
-	Xs = rand(Ns,2)
-	As = rand(Ns,2)
-	Xs[1] = 
-	for ns in 2:Ns
-		Xs[ns]=
-	end
-	# For the Objective Function
-	y[(i)]=log(P[(i,1)]/P[(i,0)])
-	z0[(i)]=beta^t*
-end
 
 
 
