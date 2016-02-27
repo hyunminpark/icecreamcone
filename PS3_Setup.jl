@@ -12,10 +12,10 @@ srand(1234)
 data = readtable("data.csv", separator = ',', header = true);
 x = convert(Array, data[:x]);
 
-time_interval=99999;
+time_interval=50000;
 starting_value = 1;
 # Discretize the data
-x_discretized = round(x[range(starting_value,time_interval)], 2);
+x_discretized = round(x[range(starting_value,time_interval)], 1);
 
 x_grid = sort(unique(x_discretized))
 actions = zeros(size(x_discretized,1),1);

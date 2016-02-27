@@ -102,11 +102,25 @@ function HM(J, x_discretized, x_grid, actions, p3, p2, P, beta)
 	end
 
 	# Approximate the Value Function
-	v = zeros(J,2)
+	z0, z1, z2, zrc = zeros(J,2), zeros(J,2), zeros(J,2), zeros(J,2)
 	for i in 1:J
-		for 
+		for a in 1:2
+			for ns in 1:Ns
+				for nt in 1:Nt
+						z0[i,a] += (beta^(nt-1))*(gamma-log(P[As[ns,i,a,nt],Is[ns,i,a,nt]]))
+					if As[ns,i,a,nt]==1
+						z1[i,a] -= (beta^(nt-1))*Xs[ns,i,a,nt]
+						z2[i,a] -= (beta^(nt-1))*Xs[ns,i,a,nt]^2
+					end
+					if As[ns,i,a,nt]==2
+						z0[i,a] -= (beta^(nt-1))
+					end
+				end
+			end
+		end
 	end
-	
+	Z0, Z1, Z2, ZRC = (z0[:,2]-z0[:,1])/(Ns*Nt), (z1[:,2]-z1[:,1])/(Ns*Nt), (z2[:,2]-z2[:,1])/(Ns*Nt), (zrc[:,2]-zrc[:,1])/(Ns*Nt)
+
 	# Find the stationary distribution to use as a weighting matrix in the minimization
 	x_grid2 = vcat(-1,x_grid)
 	Px=hist(x_discretized,x_grid2)
@@ -119,7 +133,7 @@ function HM(J, x_discretized, x_grid, actions, p3, p2, P, beta)
 	@setNLObjective(
 		hm, 
 		Min, 
-		sum{Px[i]*(y[i]-z0[i]-zrc[i]*RC-z1[i]*theta[1]-z2[i]*theta[2])^2,i = 1:J}
+		sum{Px[i]*(y[i]-Z0[i]-ZRC[i]*RC-Z1[i]*theta[1]-Z2[i]*theta[2])^2,i = 1:J}
 	);
 	status = solve(hm);
 
