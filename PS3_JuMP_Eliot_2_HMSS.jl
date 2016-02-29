@@ -229,7 +229,7 @@ x = convert(Array, data[:x]);
 
 # Create the estimates for the different beta and discretization sensitivities
 vars = [],[],[],[],[],[];
-csvfile = open("results.csv","w");
+csvfile = open("results_HMSS.csv","w");
 write(csvfile, 
 	"Beta, Rounding, HM_theta1, HM_theta2, HM_RC, MPEC_theta1, MPEC_theta2, MPEC_RC");
 for beta in [0, 0.5, 0.8, 0.9, 0.95]
