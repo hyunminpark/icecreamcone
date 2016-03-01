@@ -138,75 +138,59 @@ function MPEC(J, x_discretized, x_grid, actions, p3, P, beta)
 	return [getValue(theta[1]), getValue(theta[2]), getValue(RC)];
 end 
 
-function HM(J, x_discretized, x_grid, actions, p3, P, beta)
-
-	# Control the loops
-	S = 100;
-	T = 2 + 100*beta;
-
-	# Create estimates for the value functions
-	# Only create estimates for the i we want to use in optimization!
-	weighting = zeros(J);
-	holder = Dict()
-	for i in x_grid
-		place_index = find(x_grid .== i)[1]
-		container = Array[[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
-		if ( P[2,place_index] > 0.001 && P[1,place_index] > 0.001 )
-			weighting[place_index] += 1
-			for action in 1:2
-				for s in 1:S
-					x_sim = [i];
-					if action == 1
-						container[1][1] -= x_sim[1];
-						container[1][2] -= x_sim[1]^2;
-						container[1][4] += 0.577 - log(P[action,find(x_grid .== x_sim[1])][1]);
-					else
-						container[2][3] -= 1;
-						container[2][4]	+= 0.577 - log(P[action,find(x_grid .== x_sim[1])][1]);
-					end
-
-					push!(x_sim, sample(x_grid, weights(p3[:,find(x_grid .== x_sim[1]),action])));
-
-					for t in 2:T
-						a = sample(1:2, weights(P[:, find(x_grid .== x_sim[t])]));
-						if a == 1
-							container[action][1] -= beta*x_sim[t];
-							container[action][2] -= beta*x_sim[t]^2;
-							container[action][4] += beta*(0.577 - log(P[a,find(x_grid .== x_sim[t])][1]));
-						else 
-							container[action][3] -= beta*1;
-							container[action][4] += beta*(0.577 - log(P[a,find(x_grid .== x_sim[t])][1]));
-						end
-						push!(x_sim, sample(x_grid, weights(p3[:,find(x_grid .== x_sim[t]),a])));
-					end
-				end
-			end
+function HMSS(J, x_discretized, x_grid, actions, p3, P, beta)
+	# Length of Simulated path
+	Ns = 500; 
+	y, z0, z1, z2, zrc  = zeros(J), zeros(J), zeros(J), zeros(J), zeros(J)
+	# Is(i,a,ns) is simulated state index at time ns for initial state index i choosing initial action a
+	# Xs(i,a,ns) is simulated state value at time ns for initial state index i choosing initial action a
+	Is, Xs = zeros(J,2,Ns), zeros(J,2,Ns) 
+	p2 = zeros(J,J)
+	for j in 1:J
+		for i in 1:J
+			p2[j,i] = p3[j,i,1]*P[1,i] + p3[j,i,2]*P[2,i]
 		end
-		holder[i] = container ./= S;
+	end
+	for i in 1:J
+
+		# Calculate the simulated paths
+		for a in 1:2
+			Is[i,a,1] = sample(1:J,weights(p3[:,i,a]))
+			Xs[i,a,1] = x_grid[Is[i,a,1]]
+			for ns in 2:Ns
+				Is[i,a,ns] = sample(1:J,weights(p2[:,Is[i,a,ns-1]]))
+				Xs[i,a,ns] = x_grid[Is[i,a,ns]]
+			end	
+		end
+
+		# To construct the coefficients for the objective function
+		y[i]=log(P[2,i]/P[1,i])
+		for ns in 1:Ns
+			z0[i]  += (beta^ns)*(-P[2,Is[i,2,ns]]*log(P[2,Is[i,2,ns]]) -P[1,Is[i,2,ns]]*log(P[1,Is[i,2,ns]]) + P[2,Is[i,1,ns]]*log(P[2,Is[i,1,ns]]) + P[1,Is[i,1,ns]]*log(P[1,Is[i,1,ns]]))
+			zrc[i] += (beta^ns)*(-P[2,Is[i,2,ns]] + P[2,Is[i,1,ns]])
+			z1[i]  += (beta^ns)*(-P[1,Is[i,2,ns]]*Xs[i,2,ns] + P[1,Is[i,1,ns]]*Xs[i,1,ns])
+			z2[i]  += (beta^ns)*(-P[1,Is[i,2,ns]]*(Xs[i,2,ns]^2) + P[1,Is[i,1,ns]]*(Xs[i,1,ns]^2))
+		end
+
 	end
 
-	# Optimize with clever weighting to get proper identification
-	println(sum(weighting))
-	index = sort(collect(keys(holder)))
-	hm = Model(solver = KnitroSolver() );
-	@defVar(hm, t[i=1:3]);
-	@setNLObjective(
-		hm, 
-		Min, 
-		sum{weighting[i]*(
-			(log(P[2,i]) - log(P[1,i])) -
-			(
-				(holder[index[i]][2][1]*t[1] + holder[index[i]][2][2]*t[2]
-					+ holder[index[i]][2][3]*t[3] + holder[index[i]][2][4])
-			  - (holder[index[i]][1][1]*t[1] + holder[index[i]][1][2]*t[2]
-					+ holder[index[i]][1][3]*t[3] + holder[index[i]][1][4])
-			)
-			)^2,
-		i = 1:J}
-	);
-	status = solve(hm);
+	# Find the stationary distribution to use as a weighting matrix in the minimization
+	x_grid2 = vcat(-1,x_grid)
+	Px=hist(x_discretized,x_grid2)
+	Px=Px[2]./size(x_discretized,1)
 
-	return [getValue(t[1]), getValue(t[2]), getValue(t[3])];
+	# Minimum Distance
+	hmss = Model(solver = IpoptSolver() );
+	@defVar(hmss, theta[1:2]);
+	@defVar(hmss, RC >= 0);
+	@setNLObjective(
+		hmss, 
+		Min, 
+		sum{Px[i]*(y[i]-z0[i]-zrc[i]*RC-z1[i]*theta[1]-z2[i]*theta[2])^2,i = 1:J}
+	);
+	status = solve(hmss);
+
+	return [getValue(theta[1]), getValue(theta[2]), getValue(RC)];
 end
 
 
@@ -221,7 +205,7 @@ x = convert(Array, data[:x]);
 
 # Create the estimates for the different beta and discretization sensitivities
 vars = [],[],[],[],[],[];
-csvfile = open("results_3.csv","w");
+csvfile = open("results_HMSS_2.csv","w");
 write(csvfile, 
 	"Beta, Rounding, HM_theta1, HM_theta2, HM_RC, MPEC_theta1, MPEC_theta2, MPEC_RC");
 for beta in [0, 0.5, 0.8, 0.9, 0.95]
@@ -245,7 +229,7 @@ for beta in [0, 0.5, 0.8, 0.9, 0.95]
 			x_discretized = round(x_boot, round_param);
 			p3, P, x_grid, actions, J = create_probabilities(x_discretized);
 			results = [MPEC(J, x_discretized, x_grid, actions, p3, P, beta); 
-				   HM(J, x_discretized, x_grid, actions, p3, P, beta)];
+				   HMSS(J, x_discretized, x_grid, actions, p3, P, beta)];
 			for i in 1:6
 				push!(vars[i], results[i]);
 			end
