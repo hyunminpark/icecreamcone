@@ -223,7 +223,7 @@ x = convert(Array, data[:x]);
 vars = [],[],[],[],[],[];
 csvfile = open("results_3.csv","w");
 write(csvfile, 
-	"Beta, Rounding, HM_theta1, HM_theta2, HM_RC, MPEC_theta1, MPEC_theta2, MPEC_RC");
+	"Beta, Rounding, MPEC_theta1, MPEC_theta2, MPEC_RC, HM_theta1, HM_theta2, HM_RC");
 for beta in [0, 0.5, 0.8, 0.9, 0.95]
 	for round_param in [1]
 
