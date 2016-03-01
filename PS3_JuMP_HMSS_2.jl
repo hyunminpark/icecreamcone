@@ -214,7 +214,7 @@ for beta in [0, 0.5, 0.8, 0.9, 0.95]
 		x_discretized = round(x, round_param);
 		p3, P, x_grid, actions, J = create_probabilities(x_discretized);
 		results = [MPEC(J, x_discretized, x_grid, actions, p3, P, beta); 
-				   HM(J, x_discretized, x_grid, actions, p3, P, beta)];
+				   HMSS(J, x_discretized, x_grid, actions, p3, P, beta)];
 		for i in 1:6
 			push!(vars[i], results[i]);
 		end
