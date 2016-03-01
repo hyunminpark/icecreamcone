@@ -11,7 +11,6 @@
 
 using Ipopt
 using JuMP
-using KNITRO
 using DataFrames
 using StatsBase
 using Distributions
@@ -102,7 +101,7 @@ function MPEC(J, x_discretized, x_grid, actions, p3, P, beta)
 		index = [index; aux];
 	end 
 
-	m = Model(solver = KnitroSolver() );
+	m = Model(solver = IpoptSolver() );
 	@defVar(m, EV_1[1:J]);
 	@defVar(m, EV_0[1:J]);
 	@defVar(m, theta[i=1:2]);
@@ -188,7 +187,7 @@ function HM(J, x_discretized, x_grid, actions, p3, P, beta)
 	# Optimize with clever weighting to get proper identification
 	println(sum(weighting))
 	index = sort(collect(keys(holder)))
-	hm = Model(solver = KnitroSolver() );
+	hm = Model(solver = IpoptSolver() );
 	@defVar(hm, t[i=1:3]);
 	@setNLObjective(
 		hm, 
